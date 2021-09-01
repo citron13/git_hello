@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <canvas id="myCanvas"></canvas>
+    <script> 
+        //フィールド内の最大ブロック数
+        const Field_col = 10;
+        const Field_row = 20;
+
+        //ブロック一つのサイズ(ピクセル)
+        const Block_size = 30;
+
+        //フィールドサイズ
+        const Screen_width = 800;
+        const Screen_height = 600;
+
+        //フィールドサイズ
+        const Field_width = Block_size * Field_col;
+        const Field_height = Block_size * Field_row;
+
+        //落下ブロックのサイズ
+        const Tetro_size = 4;
+
+        const Tetro_colors = [
+            "#bbbbbb",    //0.グレー
+            "#66cc99",    //1.I.黄緑
+            "#33ccff",    //2.L.水色
+            "#ff8c00",    //3.J.薄オレンジ
+            "#005fff",    //4.T.青
+            "#a16eff",    //5.O.薄紫　
+            "#ffff66",    //6.Z.黄色　
+            "#ff99ff",    //7.S.ピンク
+        ];
+
+        const Tetro_types = [
+            [],             //0.
+            
+            [               //1.I
+                [0,0,0,0],
+                [1,1,1,1],
+                [0,0,0,0],
+                [0,0,0,0]
+            ],
+
+            [               //2.L
+                [0,0,0,0],
+                [0,1,0,0],
+                [0,1,0,0],
+                [0,1,1,0]
+            ],
+
+            [               //3.J
+                [0,0,0,0],
+                [0,0,1,0],
+                [0,0,1,0],
+                [0,1,1,0]
+            ],
+
+            [               //4.T
+                [0,0,0,0],
+                [0,1,0,0],
+                [0,1,1,0],
+                [0,1,0,0]
+            ],
+
+            [               //5.O
+                [0,0,0,0],
+                [0,1,1,0],
+                [0,1,1,0],
+                [0,0,0,0]
+            ],
+
+            [               //6.Z
+                [0,0,0,0],
+                [1,1,0,0],
+                [0,1,1,0],
+                [0,0,0,0]
+            ],
+
+            [               //7.S
+                [0,0,0,0],
+                [0,0,1,1],
+                [0,1,1,0],
+                [0,0,0,0]
+            ],
+        ];
+
+
+        //落下ブロック本体
+        var tetro;
+        //落下ブロックの形状
+        var tetro_t;
+
+        tetro_n = Math.floor( Math.random() * (Tetro_types.length-1) +1)  ;
+        tetro = Tetro_types[ tetro_t ];
+        
+        //フィールドの位置
+        const Field_x = 40;
+        const Field_y = 20;
+
+        //初期位置
+        const start_x = Field_col/2 - Tetro_size/2;
+        const start_y = -1;
+
+        //落下ブロックの座標
+        var tetro_x = start_x;
+        var tetro_y = start_y;
+
+        //フィールド本体
+        var field = [];
+        
+        const game_speed = 1000;
+
+        //スコア
+        var score = 0;
+
+        //ゲームオーバーフラグ
+        var over = false;
+
+        //初期化
+        function init(){
+            //フィールドのクリア
+            for(var y=0; y<Field_row; y++){
+                field[y] = [];
+            
+                for(var x=0; x<Field_col; x++){
+                    field[y][x] = 0;
+                }
+            }
+        }
+
+        var canvas = document.getElementById("myCanvas");
+        var ctx = canvas.getContext("2d");
+
+        canvas.width = Screen_width;
+        canvas.height = Screen_height;
+        canvas.style.border = "4px solid #555";
+
+        //ブロックの描画
+        function drawBlock(x,y,c){
+            var px = x * Block_size;
+            var py = y * Block_size;
+
+            ctx.beginPath();
+            ctx.fillStyle = Tetro_colors[c];
+            ctx.fillRect(px,py,Block_size,Block_size);
+            ctx.strokeStyle = "black";
+            ctx.strokeRect(px,py,Block_size,Block_size);
+            ctx.closePath();
+        }
+
+        //フィールドを描画する
+        function drawField(){         
+            ctx.clearRect(0,0,Screen_width,Screen_height); 
+            
+            for(var y=0; y<Field_row; y++){
+                for(var x=0; x<Field_col; x++){
+                    if(field[y][x]){
+                        drawBlock(x,y,field[y][x]);
+                    }
+                }
+            }
+            //フィールドの枠を描画する
+            ctx.strokeRect(0,0,Field_width,Field_height)
+
+            drawTetro();
+        }
+
+        //落下ブロックを描画する
+        function drawTetro(){        
+            for(var y=0; y<Tetro_size; y++){
+                for(var x=0; x<Tetro_size; x++){
+                    if(tetro[y][x]){
+                        drawBlock(tetro_x + x,tetro_y + y,tetro_t);
+                    }
+                    if(Tetro_types[tetro_n][y][x]){
+                        drawBlock(14+x,4+y,tetro_n);
+                    }
+                }
+            }
+        }
+
+        //次の落下ブロックの決定
+        function setTetro(){
+            tetro_t = tetro_n;
+            tetro = Tetro_types[ tetro_t ]
+            tetro_n = Math.floor( Math.random() * (Tetro_types.length-1) +1)  ;
+        }
+
+        //描画
+        function drawAll(){
+            drawField();
+            drawTetro();
+            drawScore();
+            drawNexttetro();
+            drawManipulate();
+
+            if( over ){
+                var s = "GAME OVER"
+		        ctx.font = "40px 'ＭＳ ゴシック'";
+		        var w = ctx.measureText(s).width;
+                var x = Field_width/2 - w/2;
+		        var y = Field_height/2 - 20;
+		        ctx.fillStyle="black";
+		        ctx.fillText(s,x,y);
+                
+                var restart = confirm("GAME OVER \n”OK”でリトライ");
+                
+                if( restart == true ){
+                    document.location.reload();
+                }
+            }
+        }
+
+        //落下ブロックの回転
+        function rotate(){
+            var ntetro = [];
+
+            for(var y=0; y<Tetro_size; y++){
+                ntetro[y] = [];
+            
+                for(var x=0; x<Tetro_size; x++){
+                    ntetro[y][x] = tetro[Tetro_size - 1 - x][y];
+                }
+            }
+
+            return ntetro;
+
+        }
+
+        //当たり判定
+        function checkMove( mx, my, ntetro ){
+
+            if(ntetro == undefined) ntetro = tetro;
+            
+            for(var y=0; y<Tetro_size; y++){
+                for(var x=0; x<Tetro_size; x++){
+                    var nx = tetro_x + mx + x;
+                    var ny = tetro_y + my + y;
+
+                    if(ntetro[y][x]){
+                        if( ny < 0 || nx < 0|| ny >= Field_row || nx >= Field_col || field[ny][nx] )
+                            return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        //自動落下とその後の処理
+        function dropTetro(){
+            if( over ) return;
+
+            if( checkMove( 0, 1 ) )
+                tetro_y++;
+            else{
+                fixTetro();
+                eraseLine();
+                setTetro();
+                
+                tetro_x = start_x;
+                tetro_y = start_y;
+
+                if( !checkMove( 0, 0 ) ){
+                    over = true;
+                }
+            }
+            drawAll();
+        }
+
+        //落下ブロックの固定
+        function fixTetro(){
+	        for(var y=0; y<Tetro_size; y++){
+                for(var x=0; x<Tetro_size; x++){
+			        if( tetro[y][x] ){
+				        field[tetro_y + y][tetro_x + x] = tetro_t;
+			        }
+		        }
+	        }
+        }
+
+        var linec = 0;
+        //一列揃ったら消去する
+        function eraseLine(){
+            for(var y=0; y<Field_row; y++){
+                var flag = true;
+                for(var x=0; x<Field_col; x++){
+                    if(!field[y][x]){
+                        flag = false;
+                        break;
+                    } 
+                }  
+                
+                if(flag){
+                    linec++;
+                    for(var ny = y; ny>0 ;ny-- ){
+				        for(var nx=0;nx<Field_col ; nx++){
+					        field[ny][nx] = field[ny-1][nx];
+				        }
+			        }
+                }
+            }
+        }
+
+        //スコアを表示する
+        function drawScore(){
+            score = linec * 10;
+            ctx.font = "40px 'ＭＳ ゴシック'";
+            ctx.fillStyle = "black"; 
+            ctx.fillText("Score："+score, 400,360);
+        }
+
+        //次の落下ブロックの表示
+        function drawNexttetro(){
+            ctx.font = "40px 'ＭＳ ゴシック'";
+            ctx.fillStyle = "black"; 
+            ctx.fillText("Next", 400,120);
+        }
+        
+        //操作の説明
+        function drawManipulate(){
+            ctx.font = "20px 'ＭＳ ゴシック'";
+            ctx.fillStyle = "red"; 
+            ctx.fillText("矢印キーで移動、スペースで回転", 400,500);
+        }
+
+        document.onkeydown = function(e){
+            if( over ) return;
+            switch( e.keyCode ){
+                case 37: //左
+                    if( checkMove( -1, 0 ) )
+                        tetro_x--;
+                    break;
+                
+                /*
+                case 38: //上
+                    if( checkMove( 0, -1 ) )
+                        tetro_y--;
+                    break;
+                */
+
+                case 39: //右
+                    if( checkMove( 1, 0 ) )
+                        tetro_x++;
+                    break;
+            
+                case 40: //下
+                    if( checkMove( 0, 1 ) )
+                        tetro_y++;
+                    break;
+                
+                case 32: //スペース
+                    var ntetro = rotate();
+                    if( checkMove( 0, 0, ntetro ) )
+                        tetro = ntetro;
+                    break;
+            }
+            drawAll();
+        }
+        
+        init();
+        setTetro();
+        drawAll();
+        setInterval( dropTetro, game_speed );
+
+    </script>
+</body>
+</html>
